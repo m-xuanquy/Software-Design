@@ -1,6 +1,7 @@
+groq==0.24.0
 ipython==8.12.3
-openai==1.77.0
+openai==1.78.0
 Pillow==11.2.1
 python-dotenv==1.1.0
-Requests==2.32.3
 together==1.5.7
+ffmpeg-python==0.2.0
