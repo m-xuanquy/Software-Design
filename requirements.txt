@@ -9,3 +9,4 @@ python-dotenv==1.1.0
 together==1.5.8
 uvicorn==0.34.2
 ffmpeg-python==0.2.0
+cloudinary==1.44.0
