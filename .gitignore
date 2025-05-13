@@ -128,3 +128,6 @@ dmypy.json
 *.srt
 *.wav
 *.png
+
+media/
+temp/
