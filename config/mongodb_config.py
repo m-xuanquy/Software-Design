@@ -12,7 +12,7 @@ DATABASE_NAME = os.getenv("DATABASE_NAME")
 
 # MongoDB client instance
 try:
-    client = AsyncIOMotorClient(MONGODB_URI)
+    client = MongoClient(MONGODB_URI)
     # Test the connection
     client.admin.command('ping')
     print("Successfully connected to MongoDB")
@@ -28,4 +28,4 @@ def get_database():
 def media_collection():
     """Get media collection"""
     db = get_database()
-    return db.media
+    return db["media"]

@@ -10,6 +10,7 @@ from services.text_to_speech import generate_speech
 from services.text_to_image import generate_image
 from services.speech_to_text import transcribe_audio, convert_to_srt
 from services.media_utils import create_video, add_subtitles
+from services.cloudinary import upload_media
 
 router = APIRouter(prefix="/media", tags=["media"])
 
@@ -38,6 +39,8 @@ async def generate_image_endpoint(prompt: str = Form(...)):
     output_file = os.path.join(OUTPUT_DIR, f"{uuid4()}.png")
     try:
         result_file = generate_image(prompt, output_file)
+        upload_media(result_file, folder="images", resource_type="image", prompt=prompt)
+
         return FileResponse(result_file, media_type="image/png", filename="image.png")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Image generation error: {str(e)}")
@@ -106,7 +109,9 @@ async def create_video_endpoint(
             result_file = add_subtitles(output_video, srt_file, output_with_subs)
             if result_file is None:
                 raise HTTPException(status_code=500, detail="Failed to add subtitles")
-            
+
+        upload_media(result_file, folder="videos", resource_type="video", prompt=image.filename) 
+
         return FileResponse(result_file, media_type="video/mp4", filename="output.mp4")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Video creation error: {str(e)}")

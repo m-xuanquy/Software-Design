@@ -14,7 +14,15 @@ def cloudinary_config():
         api_secret=os.getenv("CLOUDINARY_API_SECRET"),
         secure=True
     )
-    
+    # Check if configuration is successful
+    if all([
+        cloudinary.config().cloud_name,
+        cloudinary.config().api_key,
+        cloudinary.config().api_secret
+    ]):
+        print("Successfully connected to Cloudinary.")
+    else:
+        print("Failed to connect to Cloudinary. Please check your environment variables.")
     return cloudinary
 
 # Initialize Cloudinary when module is imported

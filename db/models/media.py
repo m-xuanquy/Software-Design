@@ -29,9 +29,9 @@ class MediaType(str, Enum):
 
 # Media model for MongoDB
 class MediaModel(BaseModel):
-    id: Optional[PyObjectId] = Field(alias="_id", default=None)
-    title: str
-    description: Optional[str] = None
+    # id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    prompt: str
+    # description: Optional[str] = None
     media_type: MediaType
     url: str  # Cloudinary URL
     public_id: str  # Cloudinary public ID
@@ -39,9 +39,9 @@ class MediaModel(BaseModel):
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime = Field(default_factory=datetime.now)
     
-    class Config:
-        populate_by_name = True
-        arbitrary_types_allowed = True
-        json_encoders = {
-            ObjectId: str
-        }
+    # class Config:
+    #     populate_by_name = True
+    #     arbitrary_types_allowed = True
+    #     json_encoders = {
+    #         ObjectId: str
+    #     }

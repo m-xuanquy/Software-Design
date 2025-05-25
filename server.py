@@ -1,4 +1,4 @@
-#python -m fastapi dev .\main.py
+#python -m fastapi dev .\server.py
 #python -m uvicorn main:api --reload
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware

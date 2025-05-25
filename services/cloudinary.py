@@ -7,7 +7,7 @@ from config import media_collection
 from db.models.media import MediaModel, MediaType
 
 def upload_media(file_path: str, folder: str = "media", resource_type: str = "auto", 
-                 title: str = None, description: str = None, metadata: Dict = None) -> Dict:
+                 prompt: str = None, metadata: Dict = None) -> Dict:
     """
     Upload media to Cloudinary and save metadata to MongoDB
     
@@ -15,7 +15,7 @@ def upload_media(file_path: str, folder: str = "media", resource_type: str = "au
         file_path: Path to local file
         folder: Cloudinary folder
         resource_type: auto, image, video, raw
-        title: Media title
+        prompt: Media prompt
         description: Media description
         metadata: Additional metadata
         
@@ -23,17 +23,21 @@ def upload_media(file_path: str, folder: str = "media", resource_type: str = "au
         Dictionary with upload result and database ID
     """
     # Get filename for the title if not provided
-    if not title:
-        title = os.path.basename(file_path)
+    if not prompt:
+        prompt = os.path.basename(file_path)
     
     # Upload to Cloudinary
-    upload_result = cloudinary.uploader.upload(
-        file_path,
-        folder=folder,
-        resource_type=resource_type,
-        unique_filename=True
-    )
-    
+    try:
+        upload_result = cloudinary.uploader.upload(
+            file_path,
+            folder=folder,
+            resource_type=resource_type,
+            unique_filename=True
+        )
+        print(f"Uploaded {file_path} to Cloudinary")
+    except Exception as e:
+        raise Exception(f"Failed to upload media to Cloudinary: {str(e)}")
+
     # Determine media type
     media_type = MediaType.TEXT
     if resource_type == "image" or (resource_type == "auto" and upload_result.get("resource_type") == "image"):
@@ -45,8 +49,7 @@ def upload_media(file_path: str, folder: str = "media", resource_type: str = "au
     
     # Create media document
     media_doc = MediaModel(
-        title=title,
-        description=description,
+        prompt=prompt,
         media_type=media_type,
         url=upload_result["secure_url"],
         public_id=upload_result["public_id"],
@@ -56,8 +59,15 @@ def upload_media(file_path: str, folder: str = "media", resource_type: str = "au
     )
     
     # Insert into MongoDB
-    result = media_collection.insert_one(media_doc.dict(by_alias=True))
-    
+    if not media_collection:
+        raise Exception("Media collection is not initialized")
+    try:
+        media_dict = media_doc.model_dump(by_alias=True)
+        result = media_collection().insert_one(media_dict)
+        print(f"Inserted media document into MongoDB with ID")
+    except Exception as e:
+        raise Exception(f"Failed to insert media into MongoDB: {str(e)}")
+
     return {
         "id": str(result.inserted_id),
         "public_id": upload_result["public_id"],
@@ -71,6 +81,6 @@ def delete_media(public_id: str):
     result = cloudinary.uploader.destroy(public_id)
     
     # Delete from MongoDB
-    media_collection.delete_one({"public_id": public_id})
+    media_collection().delete_one({"public_id": public_id})
     
     return result
