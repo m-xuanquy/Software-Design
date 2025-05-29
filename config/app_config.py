@@ -16,3 +16,9 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 TEMP_DIR = "temp"
 os.makedirs(TEMP_DIR, exist_ok=True)
+
+#AUTH
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 15
+REFRESH_TOKEN_EXPIRE_DAYS = 7
+AUTH_SECRET_KEY = os.getenv("AUTH_SECRET_KEY")

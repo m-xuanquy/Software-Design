@@ -1,5 +1,5 @@
 import os
-from pymongo import MongoClient
+import asyncio
 from dotenv import load_dotenv
 from motor.motor_asyncio import AsyncIOMotorClient
 
@@ -10,15 +10,16 @@ load_dotenv()
 MONGODB_URI = os.getenv("MONGODB_URI")
 DATABASE_NAME = os.getenv("DATABASE_NAME")
 
-# MongoDB client instance
-try:
-    client = MongoClient(MONGODB_URI)
-    # Test the connection
-    client.admin.command('ping')
-    print("Successfully connected to MongoDB")
-except Exception as e:
-    print(f"Failed to connect to MongoDB: {e}")
-    client = None
+client = AsyncIOMotorClient(MONGODB_URI)
+
+async def test_connection():
+    try:
+        await client.admin.command('ping')
+        print("Successfully connected to MongoDB")
+    except Exception as e:
+        print(f"Failed to connect to MongoDB: {e}")
+
+asyncio.run(test_connection())
 
 def get_database():
     """Get MongoDB database instance"""
@@ -29,3 +30,7 @@ def media_collection():
     """Get media collection"""
     db = get_database()
     return db["media"]
+def user_collection():
+    """Get media collection"""
+    db = get_database()
+    return db["users"]

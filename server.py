@@ -2,7 +2,7 @@
 #python -m uvicorn main:api --reload
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from routes.media import router as media_router
+from api.routes.media import router as media_router
 import uvicorn
 import time
 import logging
@@ -24,10 +24,10 @@ api = FastAPI(
 # Add CORS middleware
 api.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Update this with your frontend domain in production
+    allow_origins=["http://localhost:51"],  # Update this with your frontend domain in production
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
+    allow_headers=['Content-Type', 'Authorization'],
 )
 
 # Include routers
@@ -51,4 +51,5 @@ def index():
     }
 
 if __name__ == "__main__":
-    uvicorn.run("server:api", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("server:api", host="127.0.0.1", port=8000, reload=True)
+    

@@ -4,7 +4,7 @@ import os
 from datetime import datetime
 from typing import Optional, Dict
 from config import media_collection
-from db.models.media import MediaModel, MediaType
+from models.media import MediaModel, MediaType
 
 def upload_media(file_path: str, folder: str = "media", resource_type: str = "auto", 
                  prompt: str = None, metadata: Dict = None) -> Dict:
