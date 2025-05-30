@@ -6,7 +6,7 @@ from typing import Optional, Dict
 from config import media_collection
 from models.media import MediaModel, MediaType
 
-def upload_media(file_path: str, folder: str = "media", resource_type: str = "auto", 
+async def upload_media(file_path: str, folder: str = "media", resource_type: str = "auto", 
                  prompt: str = None, metadata: Dict = None) -> Dict:
     """
     Upload media to Cloudinary and save metadata to MongoDB
@@ -63,8 +63,8 @@ def upload_media(file_path: str, folder: str = "media", resource_type: str = "au
         raise Exception("Media collection is not initialized")
     try:
         media_dict = media_doc.model_dump(by_alias=True)
-        result = media_collection().insert_one(media_dict)
-        print(f"Inserted media document into MongoDB with ID")
+        result = await media_collection().insert_one(media_dict)
+        print(f"Inserted media document into MongoDB with ID {result.inserted_id}")
     except Exception as e:
         raise Exception(f"Failed to insert media into MongoDB: {str(e)}")
 
@@ -75,12 +75,12 @@ def upload_media(file_path: str, folder: str = "media", resource_type: str = "au
         "media_type": media_type
     }
 
-def delete_media(public_id: str):
+async def delete_media(public_id: str):
     """Delete media from Cloudinary and MongoDB"""
     # Delete from Cloudinary
     result = cloudinary.uploader.destroy(public_id)
     
     # Delete from MongoDB
-    media_collection().delete_one({"public_id": public_id})
+    await media_collection().delete_one({"public_id": public_id})
     
     return result

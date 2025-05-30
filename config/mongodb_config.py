@@ -16,10 +16,12 @@ async def test_connection():
     try:
         await client.admin.command('ping')
         print("Successfully connected to MongoDB")
+        return True
     except Exception as e:
         print(f"Failed to connect to MongoDB: {e}")
+        return False
 
-asyncio.run(test_connection())
+
 
 def get_database():
     """Get MongoDB database instance"""

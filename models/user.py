@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field,EmailStr
 from datetime import datetime
 from typing import Optional
-from pyobjectid import PyObjectId
+from .pyobjectid import PyObjectId
 from bson import ObjectId
 
 class User(BaseModel):
@@ -13,7 +13,7 @@ class User(BaseModel):
     avatar:str | None = None
     created_at: datetime = Field(default_factory=datetime.now)
     class Config:
-        allow_population_by_field_name = True
+        validate_by_name = True
         arbitrary_types_allowed = True
         json_encoders = {ObjectId: str}
 

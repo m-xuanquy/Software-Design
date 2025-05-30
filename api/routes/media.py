@@ -39,7 +39,7 @@ async def generate_image_endpoint(prompt: str = Form(...)):
     output_file = os.path.join(OUTPUT_DIR, f"{uuid4()}.png")
     try:
         result_file = generate_image(prompt, output_file)
-        upload_media(result_file, folder="images", resource_type="image", prompt=prompt)
+        await upload_media(result_file, folder="images", resource_type="image", prompt=prompt)
 
         return FileResponse(result_file, media_type="image/png", filename="image.png")
     except Exception as e:
