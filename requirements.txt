@@ -11,3 +11,6 @@ uvicorn==0.34.2
 ffmpeg-python==0.2.0
 cloudinary==1.44.0
 python-multipart
+passlib[bcrypt]
+python-jose[cryptography]
+email-validator
