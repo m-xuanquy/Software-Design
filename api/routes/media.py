@@ -9,8 +9,7 @@ from services.text_generation import generate_text
 from services.text_to_speech import generate_speech
 from services.text_to_image import generate_image
 from services.speech_to_text import transcribe_audio, convert_to_srt
-from services.media_utils import create_video, add_subtitles
-from services.cloudinary import upload_media
+from services.media_utils import create_video, add_subtitles, upload_media
 
 router = APIRouter(prefix="/media", tags=["media"])
 
