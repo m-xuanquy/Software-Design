@@ -13,3 +13,8 @@ python_jose==3.5.0
 together==1.5.8
 uvicorn==0.34.3
 google-genai
+ffmpeg-python==0.2.0
+python-multipart
+passlib[bcrypt]
+python-jose[cryptography]
+email-validator
