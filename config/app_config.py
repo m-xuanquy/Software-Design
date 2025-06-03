@@ -9,6 +9,7 @@ CAMB_KEY = os.getenv("CAMB_KEY")
 OPENROUTER_KEY = os.getenv("OPENROUTER_KEY")
 TOGETHER_KEY = os.getenv("TOGETHER_KEY")
 GROQ_KEY = os.getenv("GROQ_KEY")
+GEMINI_KEY = os.getenv("GEMINI_KEY")
 
 # Media settings
 OUTPUT_DIR = "media"

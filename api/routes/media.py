@@ -10,14 +10,15 @@ from services.text_to_speech import generate_speech
 from services.text_to_image import generate_image
 from services.speech_to_text import transcribe_audio, convert_to_srt
 from services.media_utils import create_video, add_subtitles, upload_media
+from typing import Literal
 
 router = APIRouter(prefix="/media", tags=["media"])
 
 @router.post("/generate-text")
-async def generate_text_endpoint(prompt: str = Form(...), max_length: int = Form(100)):
+async def generate_text_endpoint(model: Literal["deepseek", "gemini"] = Form(...), prompt: str = Form(...), max_length: int = Form(100)):
     """Generate text from a prompt"""
     try:
-        generated_text = generate_text(prompt, max_length)
+        generated_text = generate_text(model, prompt, max_length)
         return {"text": generated_text}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Text generation error: {str(e)}")
@@ -33,11 +34,11 @@ async def text_to_speech(text: str = Form(...), voice: str = Form("Fritz-PlayAI"
         raise HTTPException(status_code=500, detail=f"TTS error: {str(e)}")
 
 @router.post("/generate-image")
-async def generate_image_endpoint(prompt: str = Form(...)):
+async def generate_image_endpoint(model: Literal["flux", "gemini"] = Form(...),prompt: str = Form(...)):
     """Generate image from text prompt"""
     output_file = os.path.join(OUTPUT_DIR, f"{uuid4()}.png")
     try:
-        result_file = generate_image(prompt, output_file)
+        result_file = generate_image(model, prompt, output_file)
         await upload_media(result_file, folder="images", resource_type="image", prompt=prompt)
 
         return FileResponse(result_file, media_type="image/png", filename="image.png")
