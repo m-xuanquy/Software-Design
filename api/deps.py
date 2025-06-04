@@ -1,13 +1,13 @@
 from fastapi.security import HTTPBearer,HTTPAuthorizationCredentials
 from fastapi import Depends, HTTPException, status
 from services import get_user_by_username
-from models import UserInDB
+from models import User
 from schemas import TokenData
 from core import verify_token
 from jose import JWTError
 security = HTTPBearer()
 
-async def get_current_user(credentials:HTTPAuthorizationCredentials =Depends(security))->UserInDB:
+async def get_current_user(credentials:HTTPAuthorizationCredentials =Depends(security))->User:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",

@@ -1,30 +1,30 @@
 from fastapi import HTTPException,status
-from models import UserInDB
+from models import User
 from schemas import UserCreate,UserLogin
 from config import user_collection
 from core import hash_password,verify_password
 from typing import Dict, Any
 collection = user_collection()
-async def get_user_by_username(username: str)-> UserInDB | None:
+async def get_user_by_username(username: str)-> User | None:
     try:
         user = await collection.find_one({"username": username})
         if user:
-            return UserInDB(**user)
+            return User(**user)
         return None
     except Exception as e:
         print("Error fetching user by username")
         return None
 
-async def get_user_by_email(email: str)-> UserInDB | None:
+async def get_user_by_email(email: str)-> User | None:
     try:
         user = await collection.find_one({"email": email})
         if user:
-            return UserInDB(**user)
+            return User(**user)
         return None
     except Exception as e:
         print("Error fetching user by email")
         return None
-async def create_user(user:UserCreate) ->UserInDB:
+async def create_user(user:UserCreate) ->User:
     exitsting_user = await get_user_by_username(user.username)
     if exitsting_user:
         raise HTTPException(
@@ -39,19 +39,13 @@ async def create_user(user:UserCreate) ->UserInDB:
                 detail="Email already exists"
             )
     hashed_password = hash_password(user.password)
-    print("Hashed Password:", hashed_password)
-    user_dict ={
-        "username":user.username,
-        "hashed_password":hashed_password,
-        "email": user.email,
-        "fullName": user.fullName,
-        "avatar": None,
-    }
+    new_user = user.model_dump()
+    new_user["password"] = hashed_password
     try:
-        result = await collection.insert_one(user_dict)
+        result = await collection.insert_one(new_user)
         created_user = await collection.find_one({"_id": result.inserted_id})
         if created_user:
-            return  UserInDB(**created_user)
+            return  User(**created_user)
         else:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -64,13 +58,13 @@ async def create_user(user:UserCreate) ->UserInDB:
             detail="Server error while creating user"
         )
 
-async def authenticate_user(user:UserLogin) ->Dict[str, Any]:
+async def authenticate_user(user:UserLogin) ->User|None:
     try:
         userDB = await get_user_by_username(user.username)
         if not userDB:
-            return {"success": False, "message": "User not found"}
-        if not verify_password(user.password,userDB.hashed_password):
-            return {"success": False, "message": "Invalid password"}
-        return {"success": True, "user": userDB}
+            return None
+        if not verify_password(user.password,userDB.password):
+            return None
+        return userDB
     except Exception as e:
-        return {"success": False, "message": "An error authenticate the user"}
+      return None
