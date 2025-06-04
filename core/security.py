@@ -27,7 +27,7 @@ def create_refresh_token(data:Dict[str,Any])->str:
     expire = datetime.now() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
     to_encode.update({"exp": expire,"type": "refresh"})
     encoded_jwt = jwt.encode(to_encode, AUTH_SECRET_KEY, algorithm=ALGORITHM)
-
+    return encoded_jwt
 def verify_token(token,token_type:str ="access") ->Dict[str,Any]|None:
     try:
         payload = jwt.decode(token,AUTH_SECRET_KEY, algorithms=[ALGORITHM])

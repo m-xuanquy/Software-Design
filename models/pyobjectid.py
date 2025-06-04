@@ -7,7 +7,7 @@ class PyObjectId(ObjectId):
         yield cls.validate
 
     @classmethod
-    def validate(cls, v):
+    def validate(cls, v, info: Any = None):
         if not ObjectId.is_valid(v):
             raise ValueError("Invalid ObjectId")
         return ObjectId(v)
@@ -16,3 +16,9 @@ class PyObjectId(ObjectId):
     def __get_pydantic_json_schema__(cls, field_schema: dict[str, Any]) -> dict[str, Any]:
         field_schema.update(type="string")
         return field_schema
+    
+    def __str__(self):
+        return str(super())
+    
+    def __repr__(self):
+        return f"PyObjectId('{str(self)}')"

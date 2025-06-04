@@ -1,7 +1,25 @@
-from pydantic import BaseModel,EmailStr,Field,field_validator
-from typing import Optional
+from models import PyObjectId
+from pydantic import BaseModel,EmailStr,Field,field_validator,ConfigDict
+from typing import Optional,Any
+from bson import ObjectId
 import re
 from datetime import datetime
+class PyObjectId(ObjectId):
+    @classmethod
+    def __get_pydantic_core_schema__(cls, source_type: Any, handler):
+        from pydantic_core import core_schema
+        return core_schema.no_info_plain_validator_function(cls.validate)
+
+    @classmethod
+    def validate(cls, v):
+        if isinstance(v, ObjectId):
+            return v
+        if isinstance(v, str) and ObjectId.is_valid(v):
+            return ObjectId(v)
+        raise ValueError("Invalid ObjectId")
+
+    def __str__(self):
+        return str(self)
 class UserBase(BaseModel):
     username:str = Field(...,min_length=3, max_length=50)
     email:EmailStr | None = None
@@ -28,14 +46,18 @@ class UserUpdate(BaseModel):
     fullName: Optional[str] = None
     avatar: Optional[str] = None
 class UserResponse(UserBase):
-    id: str
+    model_config = ConfigDict(
+        populate_by_name=True,
+        arbitrary_types_allowed=True,
+        json_encoders={ObjectId: str}
+    )
+    id: str = Field( alias="_id")
     username: str
     email: str|None = None
     fullName: str|None = None
     avatar: str|None = None
     created_at: datetime
-    class Config:
-        from_attributes = True
+
 class ChangePassword(BaseModel):
     current_password: str
     new_password: str = Field(..., min_length=6, max_length=128)
