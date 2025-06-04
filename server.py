@@ -3,6 +3,7 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from api.routes.media import router as media_router
+from api.routes.auth import router as auth_router
 import uvicorn
 import time
 import logging
@@ -36,6 +37,8 @@ api.add_middleware(
 
 # Include routers
 api.include_router(media_router)
+api.include_router(auth_router)
+
 
 # Request logging middleware
 @api.middleware("http")
