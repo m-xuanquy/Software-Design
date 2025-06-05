@@ -1,8 +1,8 @@
-from fastapi import APIRouter,HTTPException,Form,Response,Request,Depends
+from fastapi import APIRouter,HTTPException,Form,Response,Request,Depends,Body
 from models import User
 from schemas import UserResponse, UserCreate,UserLogin,Token
 from api.deps import get_current_user
-from services import create_user,authenticate_user
+from services import create_user,authenticate_user,verify_google_token,process_google_user
 from core import create_access_token,create_refresh_token,verify_token
 from config import app_config
 router = APIRouter(prefix="/user", tags=["Authentication"])
@@ -97,7 +97,31 @@ async def refresh_token(request:Request):
             status_code=500,
             detail=f"An error occurred while logging out: {str(e)}"
         )
-
+@router.post("/auth/google/verify",response_model=Token)
+async def google_verify_token(response: Response, token: str = Form(...)):
+    try:
+        user_info = await verify_google_token(token)
+        user = await process_google_user(user_info)
+        access_token = create_access_token(data={"sub": user.username, "id": user.id})
+        refresh_token = create_refresh_token(data={"sub": user.username, "id": user.id})
+        response.set_cookie(
+            key= "refresh_token",
+            value=refresh_token,
+            max_age=REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,  # days to seconds
+            httponly=True,
+            samesite="Strict",
+            secure=False
+        )
+        return Token(
+            access_token=access_token,
+            token_type="bearer",
+            expires_in=ACCESS_TOKEN_EXPIRE_MINUTES * 60
+          )  
+    except Exception as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Google authentication failed: {str(e)}"
+            )
 @router.get("/me", response_model=UserResponse)
 async def get_me(current_user: User = Depends(get_current_user)):
     return UserResponse(**current_user.model_dump(exclude={"password"}))
