@@ -3,7 +3,9 @@ from datetime import datetime
 from typing import Optional, List, Dict
 from bson import ObjectId
 from enum import Enum
-from .pyobjectid import PyObjectId
+from pydantic.functional_validators import BeforeValidator
+from typing_extensions import Annotated
+PyObjectId = Annotated[str,BeforeValidator(str)]
 
 # Media type enum
 class MediaType(str, Enum):
