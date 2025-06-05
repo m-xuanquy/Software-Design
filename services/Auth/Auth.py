@@ -3,7 +3,6 @@ from models import User
 from schemas import UserCreate,UserLogin
 from config import user_collection
 from core import hash_password,verify_password
-from typing import Dict, Any
 collection = user_collection()
 async def get_user_by_username(username: str)-> User | None:
     try:
