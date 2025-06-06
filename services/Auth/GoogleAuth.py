@@ -1,5 +1,7 @@
 from fastapi import HTTPException,status
+from google.auth.transport.requests import Request
 from google.auth.transport import requests
+from google.auth.exceptions import RefreshError
 from config import user_collection
 from models import User
 from services import get_user_by_email,get_user_by_username
@@ -10,71 +12,94 @@ from typing import Dict,Any
 import string
 import random
 from core import hash_password
+import json
+from googleapiclient.discovery import build
+from google.oauth2.credentials import Credentials
 GOOGLE_CLIENT_ID = app_config.GOOGLE_CLIENT_ID
 GOOGLE_CLIENT_SECRET = app_config.GOOGLE_CLIENT_SECRET
 GOOGLE_REDIRECT_URI = app_config.GOOGLE_REDIRECT_URI
-# def get_google_auth_url():
-#     flow = Flow.from_client_config(
-#         {
-#             "web":{
-#                 "client_id":GOOGLE_CLIENT_ID,
-#                 "client_secret":GOOGLE_CLIENT_SECRET,
-#                 "auth_uri":"https://accounts.google.com/o/oauth2/auth",
-#                 "token_uri":"https://oauth2.googleapis.com/token",
-#                 "redirect_uris":[GOOGLE_REDIRECT_URI],
-#             }
-#         },
-#         scopes=["openid", "email", "profile"]
-#     )
-#     flow.redirect_uri = GOOGLE_REDIRECT_URI
-#     authorization_url,state =flow.authorization_url(
-#         access_type="offline",
-#         include_granted_scopes="true"
-#     )
-#     return authorization_url, state
-# async def handle_google_callback(code:str)->User:
-#     try:
-#         flow = Flow.from_client_config(
-#         {
-#             "web":{
-#                 "client_id":GOOGLE_CLIENT_ID,
-#                 "client_secret":GOOGLE_CLIENT_SECRET,
-#                 "auth_uri":"https://accounts.google.com/o/oauth2/auth",
-#                 "token_uri":"https://oauth2.googleapis.com/token",
-#                 "redirect_uris":[GOOGLE_REDIRECT_URI],
-#             }
-#         },
-#         scopes=["openid", "email", "profile"])
-#         flow.redirect_uri = GOOGLE_REDIRECT_URI
-#         flow.fetch_token(code=code)
-#         credentials = flow.credentials
-#         idinfo = id_token.verify_oauth2_token(
-#             credentials.id_token,
-#             requests.Request(),
-#             GOOGLE_CLIENT_ID
-#         )
-#     except ValueError as e:
-#         raise HTTPException(
-#             status_code=status.HTTP_400_BAD_REQUEST,
-#             detail="Invalid Google token: {}".format(str(e))
-#         )
+GOOGLE_SCOPES =[
+    "openid",
+    "https://www.googleapis.com/auth/userinfo.email",
+    "https://www.googleapis.com/auth/userinfo.profile",
+    "https://www.googleapis.com/auth/youtube.upload",
+    "https://www.googleapis.com/auth/youtube.readonly"
+]
 collection = user_collection()
-async def verify_google_token(token:str)->Dict[str,Any]:
+
+
+async def get_google_oauth_url()->str:
+    flow = Flow.from_client_config(
+        {
+            "web":{
+                "client_id": GOOGLE_CLIENT_ID,
+                "client_secret": GOOGLE_CLIENT_SECRET,
+                "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                "token_uri": "https://oauth2.googleapis.com/token",
+                "redirect_uris": [GOOGLE_REDIRECT_URI],
+            }
+        },
+        scopes=GOOGLE_SCOPES
+    )
+    flow.redirect_uri = GOOGLE_REDIRECT_URI
+    authorization_url,_ =flow.authorization_url(
+        access_type='offline',
+        include_granted_scopes='true',
+        prompt='consent',
+    )
+    return authorization_url
+
+async def handle_google_oauth_callback(code:str)->User:
     try:
+        flow =Flow.from_client_config(
+            {
+                "web":{
+                    "client_id": GOOGLE_CLIENT_ID,
+                    "client_secret": GOOGLE_CLIENT_SECRET,
+                    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                    "token_uri": "https://oauth2.googleapis.com/token",
+                    "redirect_uris": [GOOGLE_REDIRECT_URI],
+                }
+            },
+            scopes=GOOGLE_SCOPES
+        )
+        flow.redirect_uri = GOOGLE_REDIRECT_URI
+        flow.fetch_token(code=code)
+        credentials = flow.credentials
         idinfo = id_token.verify_oauth2_token(
-            token,
+            credentials.id_token,
             requests.Request(),
             GOOGLE_CLIENT_ID
         )
-        if idinfo["iss"] not in ['accounts.google.com', 'https://accounts.google.com']:
-            raise ValueError("Wrong issuer.")
-        return idinfo
-    except ValueError as e:
+        youtube_info = await get_youtube_channel_info(credentials)
+        user = await process_google_user(idinfo, credentials, youtube_info)
+        return user
+    except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid Google token: {}".format(str(e))
+            detail=f"Google OAuth callback failed: {str(e)}"
         )
-async def process_google_user(idinfo:Dict[str,Any])->User:
+async def get_youtube_channel_info(credentials) -> Dict[str, Any]:
+    try:
+        youtube_service = build('youtube','v3',credentials=credentials)
+        channels_reponse = youtube_service.channels().list(
+            part='id,snippet',
+            mine=True
+        ).execute()
+        if channels_reponse['items']:
+            channel =channels_reponse['items'][0]
+            return{
+                "channel_id": channel['id'],
+                "channel_title": channel['snippet']['title'],
+                "channel_description": channel['snippet']['description'],
+            }
+        else:
+            return {"channel_id": None, "channel_title": None, "channel_description": None}
+    except Exception as e:
+        print(f"Could not get YouTube channel info: {e}")
+        return {"channel_id": None, "channel_title": None}
+
+async def process_google_user(idinfo:Dict[str,Any],credentials,youtube_info:Dict[str,Any]) ->User:
     email = idinfo.get("email")
     name = idinfo.get("name")
     picture = idinfo.get("picture")
@@ -83,17 +108,34 @@ async def process_google_user(idinfo:Dict[str,Any])->User:
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Email is not provided by Google"
         )
+    credentials_data =json.loads(credentials.to_json())
+    google_platform_data ={
+        "credentials": credentials_data,
+        "channel_id":youtube_info.get("channel_id"),
+        "channel_title":youtube_info.get("channel_title"),
+        "channel_description":youtube_info.get("channel_description"),
+    }
     existing_user = await get_user_by_email(email)
     if existing_user:
+        social_credentials = existing_user.social_credentials or {}
+        social_credentials['google'] = google_platform_data
+        await collection.update_one(
+            {"_id": existing_user.id},
+            {"$set": {"social_credentials": social_credentials}}
+        )
+        existing_user.social_credentials = social_credentials
         return existing_user
     else:
-        username = await generate_username(email,name)
+        username = await generate_username(email, name)
         new_user = {
-            "username":username,
-            "email":email,
-            "fullName":name,
-            "avatar":picture,
-            "password":hash_password(generate_password()),
+            "username": username,
+            "email": email,
+            "fullName": name,
+            "avatar": picture,
+            "password": hash_password(generate_password()),
+            "social_credentials": {
+                "google": google_platform_data
+            }
         }
         result = await collection.insert_one(new_user)
         created_user = await collection.find_one({"_id": result.inserted_id})
@@ -104,22 +146,46 @@ async def process_google_user(idinfo:Dict[str,Any])->User:
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Server error while creating user"
             )
+async def check_and_refresh_google_credentials(user:User) -> Credentials:
+        if not user.social_credentials or 'google' not in user.social_credentials:
+           raise HTTPException(
+               status_code=status.HTTP_400_BAD_REQUEST,
+               detail="User does not have Google credentials"
+           )
+        google_credentials=user.social_credentials['google']['credentials']
+        credentials =Credentials.from_authorized_user_info(google_credentials)
+        if credentials.expired and credentials.refresh_token:
+            try:
+                credentials.refresh(Request())
+                updated_creds =credentials.to_json()
+                await collection.update_one(
+                    {"_id": user.id},
+                    {"$set": {"social_credentials.google.credentials": json.loads(updated_creds)}}
+                )
+            except RefreshError as e:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Google credentials error: {str(e)}"
+                )
+            except Exception as e:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Server error: {str(e)}"
+                )
+        return credentials
 def generate_password()->str:
     alphabet = string.ascii_letters + string.digits + string.punctuation
     return ''.join(random.choice(alphabet) for i in range(16))
 
 async def generate_username(email:str,name:str = None)->str:
-    if name:
-        base_username = name.lower().replace(" ", "_")
-    else:
-        base_username = email.split("@")[0].lower()
-    base_username = "".join(c for c in base_username if c.isalnum or c == "_")
+    base_username = email.split("@")[0].lower()
+    base_username = "".join(c for c in base_username if c.isalnum() or c == "_")
     if len(base_username) < 3:
         base_username = f"user_{base_username}"
     count =1
     username = base_username
     while True:
-        existing=await get_user_by_username(base_username)
+        existing=await get_user_by_username(username)
         if not existing:
             break
         username = f"{base_username}_{count}"

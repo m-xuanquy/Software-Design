@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field,EmailStr,ConfigDict
 from datetime import datetime
 from bson import ObjectId
-from typing import Optional
+from typing import Optional,Dict,Any
 from pydantic.functional_validators import BeforeValidator
 from typing_extensions import Annotated
 PyObjectId = Annotated[str,BeforeValidator(str)]
@@ -13,6 +13,7 @@ class User(BaseModel):
     fullName:str|None = None
     avatar:str | None = None
     created_at: datetime = Field(default_factory=datetime.now)
+    social_credentials:Optional[Dict[str, Any]] = None
     model_config =ConfigDict(
         populate_by_name=True,
         arbitrary_types_allowed=True,
