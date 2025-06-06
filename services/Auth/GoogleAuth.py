@@ -71,38 +71,19 @@ async def handle_google_oauth_callback(code:str)->User:
             requests.Request(),
             GOOGLE_CLIENT_ID
         )
-        youtube_info = await get_youtube_channel_info(credentials)
-        user = await process_google_user(idinfo, credentials, youtube_info)
+        user = await process_google_user(idinfo, credentials)
         return user
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Google OAuth callback failed: {str(e)}"
         )
-async def get_youtube_channel_info(credentials) -> Dict[str, Any]:
-    try:
-        youtube_service = build('youtube','v3',credentials=credentials)
-        channels_reponse = youtube_service.channels().list(
-            part='id,snippet',
-            mine=True
-        ).execute()
-        if channels_reponse['items']:
-            channel =channels_reponse['items'][0]
-            return{
-                "channel_id": channel['id'],
-                "channel_title": channel['snippet']['title'],
-                "channel_description": channel['snippet']['description'],
-            }
-        else:
-            return {"channel_id": None, "channel_title": None, "channel_description": None}
-    except Exception as e:
-        print(f"Could not get YouTube channel info: {e}")
-        return {"channel_id": None, "channel_title": None}
+    
 
-async def process_google_user(idinfo:Dict[str,Any],credentials,youtube_info:Dict[str,Any]) ->User:
+async def process_google_user(idinfo:Dict[str,Any],credentials) ->User:
     email = idinfo.get("email")
     name = idinfo.get("name")
-    picture = idinfo.get("picture")
+    avatar = idinfo.get("picture")
     if not email:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -111,9 +92,6 @@ async def process_google_user(idinfo:Dict[str,Any],credentials,youtube_info:Dict
     credentials_data =json.loads(credentials.to_json())
     google_platform_data ={
         "credentials": credentials_data,
-        "channel_id":youtube_info.get("channel_id"),
-        "channel_title":youtube_info.get("channel_title"),
-        "channel_description":youtube_info.get("channel_description"),
     }
     existing_user = await get_user_by_email(email)
     if existing_user:
@@ -126,12 +104,12 @@ async def process_google_user(idinfo:Dict[str,Any],credentials,youtube_info:Dict
         existing_user.social_credentials = social_credentials
         return existing_user
     else:
-        username = await generate_username(email, name)
+        username = await generate_username(email)
         new_user = {
             "username": username,
             "email": email,
             "fullName": name,
-            "avatar": picture,
+            "avatar": avatar,
             "password": hash_password(generate_password()),
             "social_credentials": {
                 "google": google_platform_data
@@ -177,7 +155,7 @@ def generate_password()->str:
     alphabet = string.ascii_letters + string.digits + string.punctuation
     return ''.join(random.choice(alphabet) for i in range(16))
 
-async def generate_username(email:str,name:str = None)->str:
+async def generate_username(email:str)->str:
     base_username = email.split("@")[0].lower()
     base_username = "".join(c for c in base_username if c.isalnum() or c == "_")
     if len(base_username) < 3:

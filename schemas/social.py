@@ -7,13 +7,6 @@ class SocialPlatform(str,Enum):
     FACEBOOK = "facebook"
     TIKTOK = "tiktok"
 
-class SocialAuthResponse (BaseModel):
-    platform:SocialPlatform
-    authorized:bool
-    authorization_url:Optional[str] = None
-    platform_info:Optional[Dict[str, Any]] = None
-
-
 class VideoUpLoadRequest (BaseModel):
     media_id:str
     platform: SocialPlatform
@@ -22,7 +15,7 @@ class VideoUpLoadRequest (BaseModel):
     tags: Optional[List[str]] = []
     privacy_status:str = Field(default="private")
 
-class VideoUploadResponse(BaseModel):
+class VideoStatsResponse(BaseModel):
     platform:SocialPlatform
     platform_video_id: str
     title: str
@@ -34,10 +27,10 @@ class VideoUploadResponse(BaseModel):
     comment_count: Optional[int] = 0
     created_at: datetime
     
-class VideoStatsResponse(BaseModel):
-    platform: SocialPlatform
-    platform_video_id: str
-    view_count: Optional[int] = 0
-    like_count: Optional[int] = 0
-    comment_count: Optional[int] = 0
-    last_updated: datetime
+# class VideoStatsResponse(BaseModel):
+#     platform: SocialPlatform
+#     platform_video_id: str
+#     view_count: Optional[int] = 0
+#     like_count: Optional[int] = 0
+#     comment_count: Optional[int] = 0
+#     last_updated: datetime
