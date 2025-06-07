@@ -5,3 +5,4 @@ from .speech_to_text import transcribe_audio, convert_to_srt
 from .media_utils import create_video, add_subtitles
 from .Auth.Auth import *
 from .Auth.GoogleAuth import *
+from .Auth.FacebookAuth import *
