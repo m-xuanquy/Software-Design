@@ -11,7 +11,11 @@ FACEBOOK_APP_SECRET= app_config.FACEBOOK_APP_SECRET
 FACEBOOK_REDIRECT_URI= app_config.FACEBOOK_REDIRECT_URI
 FACEBOOK_SCOPES=[
     "email",
-    "public_profile"
+    "public_profile",
+    "pages_manage_posts",
+    "pages_read_engagement",
+    "publish_video",
+    "pages_show_list"
 ]
 collection = user_collection()
 async def get_facebook_oauth_url():
@@ -81,13 +85,17 @@ async def process_facebook_user(user:Dict[str,Any],access_token:str)->User:
     email = user.get("email")
     name = user.get("name")
     avatar = user.get("picture", {}).get("data", {}).get("url")
+    facebook_id = user.get("id")
     if not email:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Email is not provided by Facebook"
         )
+    pages = await get_user_pages(access_token)
     facebook_platform_data = {
         "access_token": access_token,
+        "facebook_id": facebook_id,
+        "pages": pages
     }
     existing_user =await get_user_by_email(email)
     if existing_user:
@@ -121,6 +129,22 @@ async def process_facebook_user(user:Dict[str,Any],access_token:str)->User:
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Server error while creating user"
             )
+
+
+async def get_user_pages(access_token:str)->list:
+    url= "https://graph.facebook.com/v23.0/me/accounts"
+    params={
+        "access_token": access_token,
+        "fields": "id,name,access_token"
+    }
+    response = requests.get(url, params=params)
+    data = response.json()
+    if "error" in data:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Error fetching user pages: {data['error']['message']}"
+        )
+    return data.get("data", [])
 
 async def check_facebook_credentials(user: User) -> str:
     if not user.social_credentials or 'facebook' not in user.social_credentials:

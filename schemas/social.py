@@ -22,10 +22,17 @@ class VideoStatsResponse(BaseModel):
     description: Optional[str] = ""
     privacy_status: str
     platform_url:str
+    created_at: datetime
+class GoogleVideoStatsResponse(VideoStatsResponse):
     view_count: Optional[int] = 0
     like_count: Optional[int] = 0
     comment_count: Optional[int] = 0
-    created_at: datetime
+
+class FacebookVideoStatsResponse(VideoStatsResponse):
+    view_count: Optional[int] = 0
+    reaction_count:Optional[Dict[str, int]] = {}
+    share_count: Optional[int] = 0
+    comment_count: Optional[int] = 0
     
 # class VideoStatsResponse(BaseModel):
 #     platform: SocialPlatform

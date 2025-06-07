@@ -8,6 +8,9 @@ from datetime import datetime
 from typing import Optional, Dict
 from config import media_collection
 from models.media import MediaModel, MediaType
+from bson import ObjectId
+
+media_colt = media_collection()
 
 async def upload_media(file_path: str, folder: str = "media", resource_type: str = "auto", 
                  prompt: str = None, metadata: Dict = None) -> Dict:
@@ -181,3 +184,13 @@ def upload_video_to_cloud(video_path, title=None, description=None):
         os.remove(video_path)
         
     return result
+
+async def get_media_by_id(media_id: str) -> Optional[MediaModel]:
+    try:
+        media =await media_colt.find_one({"_id": ObjectId(media_id)})
+        if media:
+            return MediaModel(**media)
+        return None
+    except Exception as e:
+        print(f"Error fetching media by ID {media_id}: {e}")
+        return None
