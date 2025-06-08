@@ -32,7 +32,7 @@ async def upload_video_to_facebook(user: User,page_id:str, upload_request: Video
                 detail="Media not found"
             )
         media_url = media.url
-        upload_url=f"https://graph.facebook.com/v23.0/{page_id}/videos"
+        upload_url=f"https://graph.facebook.com/v23.0/{page_id}/uploads"
         upload_data ={
             "title": upload_request.title,
             "description": upload_request.description,
