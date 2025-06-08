@@ -1,5 +1,5 @@
 from fastapi import APIRouter,Depends,HTTPException,status,Form
-from schemas import VideoUpLoadRequest,VideoStatsResponse,GoogleVideoStatsResponse
+from schemas import VideoUpLoadRequest,VideoStatsResponse,GoogleVideoStatsResponse,FacebookVideoStatsResponse
 from models import User
 from api.deps import get_current_user
 from services.SocialNetword import upload_video,get_video_stats
@@ -16,7 +16,7 @@ async def upload_video_to_social(upload_request: VideoUpLoadRequest=Form(...), u
             detail=f"Failed to upload video: {str(e)}"
         ) 
     
-@router.get("/video-stats",response_model=Union[GoogleVideoStatsResponse])
+@router.get("/video-stats",response_model=Union[GoogleVideoStatsResponse,FacebookVideoStatsResponse])
 async def get_video_statstic(user:User =Depends(get_current_user),platform:str="",video_id:str=""):
     try:
         if not platform or not video_id:
