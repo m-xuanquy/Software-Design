@@ -1,4 +1,4 @@
-from services import check_and_refresh_google_credentials
+from services.Media import check_and_refresh_google_credentials
 from models import User
 from schemas import VideoUpLoadRequest,VideoStatsResponse
 from googleapiclient.discovery import build,Resource

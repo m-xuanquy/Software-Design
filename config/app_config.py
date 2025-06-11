@@ -12,8 +12,8 @@ GROQ_KEY = os.getenv("GROQ_KEY")
 GEMINI_KEY = os.getenv("GEMINI_KEY")
 
 # Media settings
-OUTPUT_DIR = "media"
-os.makedirs(OUTPUT_DIR, exist_ok=True)
+# OUTPUT_DIR = "media"
+# os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 TEMP_DIR = "temp"
 os.makedirs(TEMP_DIR, exist_ok=True)

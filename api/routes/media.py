@@ -1,125 +1,165 @@
-from fastapi import APIRouter, File, UploadFile, Form, HTTPException
-from fastapi.responses import FileResponse
+from fastapi import APIRouter, HTTPException, Depends, Query, File, UploadFile, Form
+from typing import Optional
+from schemas.media import MediaCreate, MediaUpdate, MediaResponse, MediaListResponse, MediaDelete
+from services.Media.media_utils import get_media_by_id, get_media_by_user, update_media, delete_media, upload_media
+from api.deps import get_current_user
+from models.media import MediaType
 import os
 from uuid import uuid4
-from typing import Optional
-import tempfile
-from config import OUTPUT_DIR
-from services.text_generation import generate_text
-from services.text_to_speech import generate_speech
-from services.text_to_image import generate_image
-from services.speech_to_text import transcribe_audio, convert_to_srt
-from services.media_utils import create_video, add_subtitles, upload_media
-from typing import Literal
+from config import TEMP_DIR
 
-router = APIRouter(prefix="/media", tags=["media"])
+router = APIRouter(prefix="/media", tags=["Media"])
 
-@router.post("/generate-text")
-async def generate_text_endpoint(model: Literal["deepseek", "gemini"] = Form(...), prompt: str = Form(...), max_length: int = Form(100)):
-    """Generate text from a prompt"""
-    try:
-        generated_text = generate_text(model, prompt, max_length)
-        return {"text": generated_text}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Text generation error: {str(e)}")
-
-@router.post("/tts")
-async def text_to_speech(text: str = Form(...), voice: str = Form("Fritz-PlayAI")):
-    """Convert text to speech"""
-    output_file = os.path.join(OUTPUT_DIR, f"{uuid4()}.wav")
-    try:
-        result_file = generate_speech(text, output_file, voice)
-        return FileResponse(result_file, media_type="audio/wav", filename="speech.wav")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"TTS error: {str(e)}")
-
-@router.post("/generate-image")
-async def generate_image_endpoint(model: Literal["flux", "gemini"] = Form(...),prompt: str = Form(...)):
-    """Generate image from text prompt"""
-    output_file = os.path.join(OUTPUT_DIR, f"{uuid4()}.png")
-    try:
-        result_file = generate_image(model, prompt, output_file)
-        await upload_media(result_file, folder="images", resource_type="image", prompt=prompt)
-
-        return FileResponse(result_file, media_type="image/png", filename="image.png")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Image generation error: {str(e)}")
-
-@router.post("/transcribe")
-async def transcribe_audio_endpoint(file: UploadFile = File(...), create_srt: bool = Form(False)):
-    """Transcribe audio to text"""
+@router.post("/upload", response_model=MediaResponse)
+async def upload_media_endpoint(
+    file: UploadFile = File(...),
+    prompt: str = Form(...),
+    media_type: MediaType = Form(...),
+    current_user = Depends(get_current_user)
+):
+    """Upload media file to Cloudinary and save metadata to MongoDB"""
     # Save uploaded file temporarily
-    temp_file = os.path.join(OUTPUT_DIR, f"{uuid4()}.wav")
-    with open(temp_file, "wb") as f:
-        f.write(await file.read())
+    temp_file = os.path.join(TEMP_DIR, f"{uuid4()}_{file.filename}")
     
     try:
-        if create_srt:
-            srt_file = os.path.join(OUTPUT_DIR, f"{uuid4()}.srt")
-            transcription = transcribe_audio(temp_file, srt_file)
-            return FileResponse(srt_file, media_type="text/plain", filename="transcription.srt")
-            
-        else:
-            transcription = transcribe_audio(temp_file)
-            return {"text": transcription.text}
+        with open(temp_file, "wb") as f:
+            f.write(await file.read())
+        
+        # Determine folder and resource type based on media type
+        folder_map = {
+            MediaType.IMAGE: ("images", "image"),
+            MediaType.AUDIO: ("audio", "auto"),
+            MediaType.VIDEO: ("videos", "video"),
+            MediaType.TEXT: ("text", "raw")
+        }
+        
+        folder, resource_type = folder_map.get(media_type, ("media", "auto"))
+        
+        # Upload to Cloudinary and save to MongoDB
+        result = await upload_media(
+            file_path=temp_file,
+            user_id=str(current_user.id),
+            folder=folder,
+            resource_type=resource_type,
+            prompt=prompt,
+            metadata={"original_filename": file.filename}
+        )
+        
+        # Get the saved media from database
+        media = await get_media_by_id(result["id"])
+        return MediaResponse(**media)
+        
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Transcription error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Upload error: {str(e)}")
     finally:
         # Clean up temp file
         if os.path.exists(temp_file):
             os.remove(temp_file)
 
-@router.post("/create-video")
-async def create_video_endpoint(
-    image: UploadFile = File(...),
-    audio: UploadFile = File(...),
-    is_add_subtitles: bool = Form(False)
+@router.post("/create", response_model=MediaResponse)
+async def create_media_endpoint(
+    media_create: MediaCreate,
+    current_user = Depends(get_current_user)
 ):
-    """Create video from image and audio"""
-    # Create temp files with specific file extensions
-    temp_image = os.path.join(OUTPUT_DIR, f"{uuid4()}.png")
-    temp_audio = os.path.join(OUTPUT_DIR, f"{uuid4()}.wav")
-    temp_files = [temp_image, temp_audio]
-    
+    """Create media metadata record (for text-only media or external URLs)"""
     try:
-        # Save uploaded files
-        with open(temp_image, "wb") as f:
-            f.write(await image.read())
-        with open(temp_audio, "wb") as f:
-            f.write(await audio.read())
-        
-        # Create video
-        output_video = os.path.join(OUTPUT_DIR, f"{uuid4()}.mp4")
-        temp_files.append(output_video)
-        result_file = create_video(temp_image, temp_audio, output_video)
-        
-        if result_file is None:
-            raise HTTPException(status_code=500, detail="Failed to create video")
-        
-        if is_add_subtitles:
-            # Create SRT file
-            srt_file = os.path.join(OUTPUT_DIR, f"{uuid4()}.srt")
-            temp_files.append(srt_file)
-            transcription = transcribe_audio(temp_audio, srt_file)
+        # For text media, we don't need to upload a file
+        if media_create.media_type == MediaType.TEXT:
+            # Create a text file with the prompt content
+            temp_file = os.path.join(TEMP_DIR, f"{uuid4()}.txt")
+            with open(temp_file, "w", encoding="utf-8") as f:
+                f.write(media_create.content)
             
-            # Add subtitles
-            output_with_subs = os.path.join(OUTPUT_DIR, f"{uuid4()}_subtitled.mp4")
-            temp_files.append(output_with_subs)
+            result = await upload_media(
+                file_path=temp_file,
+                user_id=str(current_user.id),
+                folder="text",
+                resource_type="raw",
+                prompt=media_create.content,
+                metadata=media_create.metadata
+            )
             
-            result_file = add_subtitles(output_video, srt_file, output_with_subs)
-            if result_file is None:
-                raise HTTPException(status_code=500, detail="Failed to add subtitles")
-
-        upload_media(result_file, folder="videos", resource_type="video", prompt=image.filename) 
-
-        return FileResponse(result_file, media_type="video/mp4", filename="output.mp4")
+            # Clean up temp file
+            if os.path.exists(temp_file):
+                os.remove(temp_file)
+            
+            # Get the saved media from database
+            media = await get_media_by_id(result["id"])
+            return MediaResponse(**media)
+        else:
+            raise HTTPException(
+                status_code=400, 
+                detail="For non-text media, please use the /upload endpoint with a file"
+            )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Video creation error: {str(e)}")
-    finally:
-        # Clean up all temp files except the result file
-        for f in temp_files:
-            if os.path.exists(f) and f != result_file:
-                try:
-                    os.remove(f)
-                except Exception as e:
-                    print(f"Error deleting temporary file {f}: {e}")
+        raise HTTPException(status_code=500, detail=f"Create media error: {str(e)}")
+
+@router.get("/{media_id}", response_model=MediaResponse)
+async def get_media(
+    media_id: str,
+    current_user = Depends(get_current_user)
+):
+    """Get media by ID"""
+    media = await get_media_by_id(media_id)
+    if not media:
+        raise HTTPException(status_code=404, detail="Media not found")
+    
+    # Check if user owns the media
+    if media["user_id"] != str(current_user.id):
+        raise HTTPException(status_code=403, detail="Not authorized to access this media")
+    
+    return MediaResponse(**media)
+
+@router.get("/", response_model=MediaListResponse)
+async def get_user_media(
+    page: int = Query(1, ge=1, description="Page number"),
+    size: int = Query(10, ge=1, le=100, description="Page size"),
+    media_type: Optional[MediaType] = Query(None, description="Filter by media type"),
+    current_user = Depends(get_current_user)
+):
+    """Get current user's media with pagination and optional filtering"""
+    result = await get_media_by_user(str(current_user.id), page, size, media_type)
+    
+    media_responses = [MediaResponse(**media) for media in result["media"]]
+    
+    return MediaListResponse(
+        media=media_responses,
+        total=result["total"],
+        page=result["page"],
+        size=result["size"]
+    )
+
+@router.put("/{media_id}", response_model=MediaResponse)
+async def update_media_endpoint(
+    media_id: str,
+    media_update: MediaUpdate,
+    current_user = Depends(get_current_user)
+):
+    """Update media metadata"""
+    # Filter out None values
+    update_data = {k: v for k, v in media_update.model_dump().items() if v is not None}
+    
+    if not update_data:
+        raise HTTPException(status_code=400, detail="No data provided for update")
+    
+    updated_media = await update_media(media_id, str(current_user.id), update_data)
+    if not updated_media:
+        raise HTTPException(status_code=404, detail="Media not found or not authorized")
+    
+    return MediaResponse(**updated_media)
+
+@router.delete("/{media_id}", response_model=MediaDelete)
+async def delete_media_endpoint(
+    media_id: str,
+    current_user = Depends(get_current_user)
+):
+    """Delete media"""
+    success = await delete_media(media_id, str(current_user.id))
+    
+    if not success:
+        raise HTTPException(status_code=404, detail="Media not found or not authorized")
+    
+    return MediaDelete(
+        success=True,
+        message="Media deleted successfully"
+    )

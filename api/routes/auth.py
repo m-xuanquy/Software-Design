@@ -3,7 +3,7 @@ from fastapi.responses import RedirectResponse
 from models import User
 from schemas import UserResponse, UserCreate,UserLogin,Token
 from api.deps import get_current_user
-from services import create_user,authenticate_user,get_google_oauth_url,handle_google_oauth_callback
+from services.Media import create_user,authenticate_user,get_google_oauth_url,handle_google_oauth_callback
 from core import create_access_token,create_refresh_token,verify_token
 from config import app_config
 router = APIRouter(prefix="/user", tags=["Authentication"])

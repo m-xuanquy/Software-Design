@@ -4,7 +4,7 @@ from google.auth.transport import requests
 from google.auth.exceptions import RefreshError
 from config import user_collection
 from models import User
-from services import get_user_by_email,get_user_by_username
+from services.Media import get_user_by_email,get_user_by_username
 from config import app_config
 from google.oauth2 import id_token
 from google_auth_oauthlib.flow import Flow

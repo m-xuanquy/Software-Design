@@ -1,7 +1,7 @@
 from fastapi import HTTPException, status
 from models import User
 from schemas import VideoUpLoadRequest,SocialPlatform
-from services.SocialNetword import upload_video_to_youtube,get_youtube_video_stats
+from services.SocialNetwork import upload_video_to_youtube,get_youtube_video_stats
 async def upload_video(user:User,upload_request:VideoUpLoadRequest):
     if upload_request.platform == SocialPlatform.GOOGLE:
         if not user.social_credentials or 'google' not in user.social_credentials:

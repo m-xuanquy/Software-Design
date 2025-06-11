@@ -2,9 +2,10 @@
 #python -m uvicorn main:api --reload
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from api.routes.media import router as media_router
+from api.routes.media_generation import router as media_generation_router
 from api.routes.auth import router as auth_router
 from api.routes.social import router as social_router
+from api.routes.media import router as media_router
 import uvicorn
 import time
 import logging
@@ -37,8 +38,9 @@ api.add_middleware(
 )
 
 # Include routers
-api.include_router(media_router)
+api.include_router(media_generation_router)
 api.include_router(auth_router)
+api.include_router(media_router)
 api.include_router(social_router)
 
 # Request logging middleware
