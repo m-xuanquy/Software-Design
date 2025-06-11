@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends, Query, File, UploadFile, Form
 from typing import Optional
-from schemas.media import MediaCreate, MediaUpdate, MediaResponse, MediaListResponse, MediaDelete
+from schemas import MediaCreate, MediaUpdate, MediaResponse, MediaListResponse, MediaDelete
 from services.Media.media_utils import get_media_by_id, get_media_by_user, update_media, delete_media, upload_media
 from api.deps import get_current_user
 from models.media import MediaType
