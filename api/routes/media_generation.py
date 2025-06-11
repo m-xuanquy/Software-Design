@@ -6,11 +6,7 @@ from typing import Optional
 import tempfile
 # from config import OUTPUT_DIR
 from config import TEMP_DIR
-from services.Media.text_generation import generate_text
-from services.Media.text_to_speech import generate_speech
-from services.Media.text_to_image import generate_image
-from services.Media.speech_to_text import transcribe_audio, convert_to_srt
-from services.Media.media_utils import create_video, add_subtitles, upload_media
+from services import generate_text, generate_speech, generate_image, transcribe_audio, convert_to_srt, create_video, add_subtitles, upload_media
 from typing import Literal
 
 router = APIRouter(prefix="/media", tags=["Media Generation"])
