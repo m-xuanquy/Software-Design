@@ -64,7 +64,6 @@ async def get_youtube_video_stats(user:User,video_id:str)->GoogleVideoStatsRespo
         snippet = video_data['snippet']
         return GoogleVideoStatsResponse(
             platform='google',
-            platform_video_id=video_id,
             title=snippet.get('title', ''),
             description=snippet.get('description', ''),
             privacy_status=snippet.get('privacyStatus', 'private'),

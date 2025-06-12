@@ -17,7 +17,7 @@ async def upload_video(user:User,upload_request:VideoUpLoadRequest):
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Facebook credentials are not available for the user."
             )
-        page_id ="page_id" #this should be passed in the upload_request or fetched from user credentials
+        page_id ="" #this should be passed in the upload_request or fetched from user credentials
         return await upload_video_to_facebook(user,page_id, upload_request)
 
 async def get_video_stats(user:User,video_id:str,platform:SocialPlatform):

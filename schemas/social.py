@@ -17,7 +17,6 @@ class VideoUpLoadRequest (BaseModel):
 
 class VideoStatsResponse(BaseModel):
     platform:SocialPlatform
-    platform_video_id: str
     title: str
     description: Optional[str] = ""
     privacy_status: str

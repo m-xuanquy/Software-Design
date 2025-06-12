@@ -25,18 +25,18 @@ async def upload_video_to_facebook(user: User,page_id:str, upload_request: Video
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Page access token not found"
             )
-        media = await get_media_by_id(upload_request.media_id)
-        if not media:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Media not found"
-            )
-        media_url = media.url
-        upload_url=f"https://graph.facebook.com/v23.0/{page_id}/uploads"
+        # # media = await get_media_by_id(upload_request.media_id)
+        # if not media:
+        #     raise HTTPException(
+        #         status_code=status.HTTP_404_NOT_FOUND,
+        #         detail="Media not found"
+        #     )
+        # media_url = media.url
+        upload_url=f"https://graph.facebook.com/v23.0/{page_id}/videos"
         upload_data ={
             "title": upload_request.title,
             "description": upload_request.description,
-            "file_url": media_url,
+            "file_url": "https://www.w3schools.com/tags/mov_bbb.mp4",
             "access_token": page_access_token,
             "privacy": "{\"value\":\"EVERYONE\"}"
         }
@@ -54,6 +54,7 @@ async def upload_video_to_facebook(user: User,page_id:str, upload_request: Video
         
         response = requests.post(upload_url, data=upload_data)
         result = response.json()
+        print(f"Facebook upload response: {result}")  # Debugging line
         if "error" in result:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -78,8 +79,12 @@ async def get_page_by_pageid(user:User,page_id:str):
         
 async def get_facebook_video_stats(user: User, video_id: str) -> FacebookVideoStatsResponse:
     try:
-        page_id="page_id"  # Replace with actual page ID or fetch from user input
+        page_id=""  # Replace with actual page ID or fetch from user input
         access_token = await check_facebook_credentials(user)
+       
+        video_info = await get_video_basic_info(video_id, access_token)
+        post_id_from_video_id = video_info.get("post_id")
+        post_id = f"{page_id}_{post_id_from_video_id}"
         page = await get_page_by_pageid(user, page_id)
         if not page:
             raise HTTPException(
@@ -92,20 +97,17 @@ async def get_facebook_video_stats(user: User, video_id: str) -> FacebookVideoSt
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Page access token not found"
             )
-        video_info = await get_video_basic_info(video_id, page_access_token)
-        reactions = await get_video_creations(video_id, page_access_token)
+        reactions = await get_video_creations(post_id, page_access_token)
         comments = await get_video_comments(video_id, page_access_token)
-        shares = await get_video_shares(video_id, page_access_token)
-        view_count = await get_video_view_count(video_id, page_access_token)
+        shares = await get_video_shares(post_id, page_access_token)
         return FacebookVideoStatsResponse(
             platform=SocialPlatform.FACEBOOK,
-            platform_video_id=video_id,
             title=video_info.get("title", ""),
             description=video_info.get("description", ""),
             privacy_status=video_info.get("privacy_status", "UNKNOWN"),
             platform_url=video_info.get("permalink_url",f"https://www.facebook.com/{video_id}"),
             created_at=video_info.get("created_at"),
-            view_count=view_count,
+            view_count=video_info.get("views", 0),
             reaction_count=reactions,
             share_count=shares,
             comment_count= comments
@@ -122,7 +124,7 @@ async def get_video_basic_info(video_id: str, access_token: str) -> dict:
         url = f"https://graph.facebook.com/v23.0/{video_id}"
         params = {
             "access_token": access_token,
-            "fields": "title,description,created_time,privacy,permalink_url"
+            "fields": "title,description,created_time,privacy,permalink_url,post_id,views"
         }
         response = requests.get(url, params=params)
         data = response.json()
@@ -136,48 +138,34 @@ async def get_video_basic_info(video_id: str, access_token: str) -> dict:
             "description": data.get("description", ""),
             "created_at": data.get("created_time"),
             "privacy_status": data.get("privacy", {}).get("value", "SELF"),
-            "platform_url": data.get("permalink_url", "")
+            "platform_url": data.get("permalink_url", ""),
+            "post_id": data.get("post_id", ""),
+            "views": data.get("views", 0)
         }
     except Exception as e:
         return{}
-    
-async def get_video_view_count(video_id: str, access_token: str) -> int:
-    try:
-        url = f"https://graph.facebook.com/v23.0/{video_id}/insights"
-        params = {
-            "access_token": access_token,
-            "metric": "post_video_views",
-        }
-        response = requests.get(url, params=params)
-        data = response.json()
-        if "data" in data and not data.get("error"):
-            return data["data"][0]["values"][0]["value"]
-        return 0
-    except Exception as e:
-        return 0
 
-async def get_video_creations(video_id: str, access_token: str) -> dict:
-    reaction_types =["LIKE", "LOVE", "WOW", "HAHA", "SAD", "ANGRY","CARE"]
-    reactions ={}
-    for reaction_type in reaction_types:
-        try:
-            reactions_url = f"https://graph.facebook.com/v23.0/{video_id}/reactions"
-            params = {
-                "access_token": access_token,
-                "type": reaction_type,
-                "limit": 0  ,
-                "summary": "total_count"
-            }
-            response = requests.get(reactions_url, params=params)
-            data = response.json()
-            print(f"Reaction data for {reaction_type}: {data}")  # Debugging line
-            if "summary" in data:
-                reactions[reaction_type.lower()] = data["summary"].get("total_count", 0)
-            else:
-                reactions[reaction_type.lower()] = 0
-        except Exception as e:
-            reactions[reaction_type.lower()] = 0
-    return reactions
+async def get_video_creations(post_id: str, access_token: str) -> dict:
+        reactions=["LIKE", "LOVE", "WOW", "HAHA", "SAD", "ANGRY"]
+        reactions_count ={}
+        url = f"https://graph.facebook.com/v23.0/{post_id}/reactions"
+        for reaction in reactions:
+            try:
+                params ={
+                    "access_token": access_token,
+                    "type": reaction,
+                    "summary": "total_count",
+                    "limit": 0  
+                }
+                response = requests.get(url, params=params)
+                data = response.json()
+                if "summary" in data and "error" not in data:
+                    reactions_count[reaction] = data["summary"].get("total_count", 0)
+                else:
+                    reactions_count[reaction] = 0
+            except Exception as e:
+                reactions_count[reaction] = 0
+        return reactions_count
 async def get_video_comments(video_id: str, access_token: str) -> int:
     try:
         comments_url = f"https://graph.facebook.com/v23.0/{video_id}/comments"
@@ -194,9 +182,9 @@ async def get_video_comments(video_id: str, access_token: str) -> int:
     except Exception as e:
         return 0
     
-async def get_video_shares(video_id: str, access_token: str) -> int:
+async def get_video_shares(post_id: str, access_token: str) -> int:
     try:
-        shares_url = f"https://graph.facebook.com/v23.0/{video_id}"
+        shares_url = f"https://graph.facebook.com/v23.0/{post_id}"
         params = {
             "access_token": access_token,
             "fields": "shares"
