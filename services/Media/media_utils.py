@@ -8,6 +8,9 @@ from datetime import datetime
 from typing import Optional, Dict
 from config import media_collection
 from models.media import MediaModel, MediaType
+from bson import ObjectId
+
+media_colt = media_collection()
 
 async def upload_media(file_path: str, user_id: str, folder: str = "media", resource_type: str = "auto", 
                  prompt: str = None, metadata: Dict = None) -> Dict:
@@ -220,4 +223,31 @@ def add_subtitles(video_path, subtitle_path, output_path=None):
         return output_path
     except Exception as e:
         print(f"Error adding subtitles: {e}")
+        return None
+
+def upload_video_to_cloud(video_path, title=None, description=None):
+    """Create video and upload to Cloudinary"""
+    # Upload to Cloudinary
+    result = upload_media(
+        video_path, 
+        folder="videos",
+        resource_type="video",
+        title=title,
+        description=description
+    )
+    
+    # Clean up temporary file
+    if os.path.exists(video_path) and video_path.startswith(TEMP_DIR):
+        os.remove(video_path)
+        
+    return result
+
+async def get_media_by_id(media_id: str) -> Optional[MediaModel]:
+    try:
+        media =await media_colt.find_one({"_id": ObjectId(media_id)})
+        if media:
+            return MediaModel(**media)
+        return None
+    except Exception as e:
+        print(f"Error fetching media by ID {media_id}: {e}")
         return None

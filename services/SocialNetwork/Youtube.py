@@ -1,6 +1,6 @@
 from services import check_and_refresh_google_credentials
 from models import User
-from schemas import VideoUpLoadRequest,VideoStatsResponse
+from schemas import VideoUpLoadRequest,VideoStatsResponse,GoogleVideoStatsResponse
 from googleapiclient.discovery import build,Resource
 from googleapiclient.http import MediaFileUpload
 from fastapi import HTTPException, status
@@ -46,7 +46,7 @@ async def upload_video_to_youtube(user:User,upload_request:VideoUpLoadRequest)->
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to upload video to YouTube: {str(e)}"
         )
-async def get_youtube_video_stats(user:User,video_id:str)->VideoStatsResponse:
+async def get_youtube_video_stats(user:User,video_id:str)->GoogleVideoStatsResponse:
     try:
         youtube_service = await get_youtube_service(user)
         request =youtube_service.videos().list(
@@ -62,9 +62,8 @@ async def get_youtube_video_stats(user:User,video_id:str)->VideoStatsResponse:
         video_data = response['items'][0]
         stats = video_data['statistics']
         snippet = video_data['snippet']
-        return VideoStatsResponse(
+        return GoogleVideoStatsResponse(
             platform='google',
-            platform_video_id=video_id,
             title=snippet.get('title', ''),
             description=snippet.get('description', ''),
             privacy_status=snippet.get('privacyStatus', 'private'),
