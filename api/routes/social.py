@@ -2,7 +2,7 @@ from fastapi import APIRouter,Depends,HTTPException,status,Form
 from schemas import VideoUpLoadRequest,VideoStatsResponse,GoogleVideoStatsResponse,FacebookVideoStatsResponse
 from models import User
 from api.deps import get_current_user
-from services.SocialNetword import upload_video,get_video_stats
+from services.SocialNetwork import upload_video,get_video_stats
 from typing import Union,Optional
 router = APIRouter(prefix="/social", tags=["Social Media"])
 @router.post("/upload-video",response_model=str)
